@@ -26,11 +26,6 @@
  * - GitHub: https://github.com/SplinterGU/ESPeccyFlashTool
  * - This project is a tool for flashing firmware to ESP32 devices.
  *
- * Usage:
- * especcy_flash_tool [options]
- * Options:
- *   -h            This help message.
- *   -nopsram      Use no PSRAM firmware.
  */
 
 #include <stdio.h>

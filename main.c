@@ -26,11 +26,6 @@
  * - GitHub: https://github.com/SplinterGU/ESPeccyFlashTool
  * - This project is a tool for flashing firmware to ESP32 devices.
  *
- * Usage:
- * especcy_flash_tool [options]
- * Options:
- *   -h            This help message.
- *   -nopsram      Use no PSRAM firmware.
  */
 
 #include <stdio.h>
@@ -41,6 +36,7 @@
 
 #ifndef _WIN32
 #include <sys/wait.h>
+#include <termios.h>
 #endif
 
 #include "download_file.h"
@@ -52,96 +48,151 @@
     #define ESPUTIL             "esputil_linux"
 #endif
 
+int get_baud_rate(int baud) {
+#ifdef _WIN32
+    // En Windows, solo devolvemos el valor porque se usa directamente
+    switch (baud) {
+        case 9600:
+        case 19200:
+        case 38400:
+        case 57600:
+        case 115200:
+        case 230400:
+        case 460800:
+        case 500000:
+        case 576000:
+        case 921600:
+        case 1000000:
+        case 1152000:
+        case 1500000:
+        case 2000000:
+        case 2500000:
+        case 3000000:
+        case 3500000:
+        case 4000000:
+            return baud;
+    }
+#else
+    // En Unix-like, retornamos las constantes definidas en termios.h
+    switch (baud) {
+        case 9600:    return B9600;
+        case 19200:   return B19200;
+        case 38400:   return B38400;
+        case 57600:   return B57600;
+        case 115200:  return B115200;
+        case 230400:  return B230400;
+#ifndef __APPLE__
+        case 460800:  return B460800;
+        case 500000:  return B500000;
+        case 576000:  return B576000;
+        case 921600:  return B921600;
+        case 1000000: return B1000000;
+        case 1152000: return B1152000;
+        case 1500000: return B1500000;
+        case 2000000: return B2000000;
+        case 2500000: return B2500000;
+        case 3000000: return B3000000;
+        case 3500000: return B3500000;
+        case 4000000: return B4000000;
+#endif
+    }
+#endif
+    fprintf(stderr, "Unsupported baud rate: %d\n", baud);
+    return -1;
+}
+
 // Function to show the help message
 void show_help() {
     printf("Usage: especcy_flash_tool [options]\n");
     printf("Options:\n");
-    printf("  -h            This help\n");
-    printf("  -nopsram      Use no PSRAM firmware\n");
+    printf("  -h                This help\n");
+    printf("  -nopsram          Use no PSRAM firmware\n");
+    printf("  -b|-baud [rate]   Specify baud rate (default: 115200)\n");
+    printf("                    Supported rates:\n");
+    printf("                      9600, 19200, 38400, 57600, 115200, 230400\n");
+#ifndef __APPLE__
+    printf("                      460800, 500000, 576000, 921600, 1000000\n");
+    printf("                      1152000, 1500000, 2000000, 2500000, 3000000\n");
+    printf("                      3500000, 4000000\n");
+#endif
     printf("\n");
     printf("GitHub: https://github.com/SplinterGU/ESPeccyFlashTool\n");
 }
 
 // Function to flash the firmware
-int flash_firmware(const char *firmware_name, const char *port_name) {
-    const char *command = NULL;
-
-    // Concatenate the firmware name to the command
-    char full_command[512];  // Assuming the command doesn't exceed 512 characters
+int flash_firmware(const char *firmware_name, const char *port_name, int baud) {
+    char full_command[512];
 #ifdef _WIN32
-    snprintf(full_command, sizeof(full_command), "esputil.exe -fspi 6,17,8,11,16 -p %s -b 115200 flash 0x0 %s", port_name, firmware_name);
+    snprintf(full_command, sizeof(full_command), "esputil.exe -fspi 6,17,8,11,16 -p %s -b %d flash 0x0 %s", port_name, baud, firmware_name);
 #else
-    snprintf(full_command, sizeof(full_command), "./esputil_linux -fspi 6,17,8,11,16 -p %s -b 115200 flash 0x0 %s", port_name, firmware_name);
+    snprintf(full_command, sizeof(full_command), "./esputil_linux -fspi 6,17,8,11,16 -p %s -b %d flash 0x0 %s", port_name, baud, firmware_name);
 #endif
 
     int ret_code = system(full_command);
 
 #ifdef _WIN32
-    if (ret_code == 0) {
-        // On Windows, a return of 0 means success
-        return 0;
-    } else {
-        fprintf(stderr, "Command failed with code %d\n", ret_code);
-        return -1;
-    }
+    return (ret_code == 0) ? 0 : -1;
 #else
     if (ret_code == -1) {
         perror("Error executing command");
         return -1;
-    } else if (WIFEXITED(ret_code) && WEXITSTATUS(ret_code) == 0) {
-        return 0;
-    } else {
-        fprintf(stderr, "Command failed with code %d\n", WEXITSTATUS(ret_code));
-        return -1;
     }
+    return (WIFEXITED(ret_code) && WEXITSTATUS(ret_code) == 0) ? 0 : -1;
 #endif
 }
 
 int main(int argc, char *argv[]) {
-    printf("ESPeccy Flash Tool\n");
+    printf("ESPeccy Flash Tool - v1.1\n");
     printf("Copyright (c) 2024 SplinterGU\n\n");
 
-    // Check if the -h option was passed
-    if (argc > 1 && strcmp(argv[1], "-h") == 0) {
-        show_help();
-        return 0; // Show help and exit
-    }
-
     const char *firmware_name = "complete_firmware-psram.bin";
+    int baud_rate = 115200;
 
-    if (argc > 1 && strcmp(argv[1], "-nopsram") == 0) {
-        firmware_name = "complete_firmware-nopsram.bin";
+    // Parse command-line arguments
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "-h") == 0) {
+            show_help();
+            return 0;
+        } else if (strcmp(argv[i], "-nopsram") == 0) {
+            firmware_name = "complete_firmware-nopsram.bin";
+        } else if (strcmp(argv[i], "-baud") == 0 || strcmp(argv[i], "-b") == 0) {
+            if (i + 1 < argc) {
+                baud_rate = atoi(argv[++i]);
+                if (get_baud_rate(baud_rate) == -1) {
+                    fprintf(stderr, "Invalid baud rate specified: %d\n", baud_rate);
+                    return 1;
+                }
+            } else {
+                fprintf(stderr, "Missing value for -baud option\n");
+                return 1;
+            }
+        }
     }
 
     const char *port_name = find_esp32_port();
-
     if (!port_name) return -1;
 
-    // Download the firmware file
     if (download_file("SplinterGU/ESPeccy", firmware_name) != 0) {
         fprintf(stderr, "Firmware download error... aborting...\n");
         return 1;
     }
 
-    // Download the flashing tool
     if (download_file("SplinterGU/esputil", ESPUTIL) != 0) {
         fprintf(stderr, "Flash tool download error... aborting...\n");
         return 1;
     }
 
 #ifndef _WIN32
-    // Try changing the file permissions in Linux
     if (chmod(ESPUTIL, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0) {
         perror("Can't assign execution perms\n");
         return 1;
     }
 #endif
 
-    // Run the flashing process and check if it was successful
-    if (flash_firmware(firmware_name, port_name) != 0) {
+    if (flash_firmware(firmware_name, port_name, baud_rate) != 0) {
         fprintf(stderr, "Error! can't flash the firmware\n");
-        return 1; // Error
+        return 1;
     }
 
-    return 0; // Success
+    return 0;
 }

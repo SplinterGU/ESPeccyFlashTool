@@ -122,12 +122,11 @@ void show_help() {
 // Function to flash the firmware
 int flash_firmware(const char *firmware_name, const char *port_name, int baud) {
     char full_command[512];
-#ifdef _WIN32
-    snprintf(full_command, sizeof(full_command), "esputil.exe -fspi 6,17,8,11,16 -p %s -b %d flash 0x0 %s", port_name, baud, firmware_name);
-#else
-    snprintf(full_command, sizeof(full_command), "./esputil_linux -fspi 6,17,8,11,16 -p %s -b %d flash 0x0 %s", port_name, baud, firmware_name);
+    snprintf(full_command, sizeof(full_command),
+#ifndef _WIN32
+                                "./"
 #endif
-
+                                ESPUTIL " -p %s -b %d flash 0x0 %s", port_name, baud, firmware_name);
     int ret_code = system(full_command);
 
 #ifdef _WIN32
@@ -142,7 +141,7 @@ int flash_firmware(const char *firmware_name, const char *port_name, int baud) {
 }
 
 int main(int argc, char *argv[]) {
-    printf("ESPeccy Flash Tool - v1.1\n");
+    printf("ESPeccy Flash Tool - v1.2\n");
     printf("Copyright (c) 2024 SplinterGU\n\n");
 
     const char *firmware_name = "complete_firmware-psram.bin";

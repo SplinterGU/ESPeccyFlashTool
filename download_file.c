@@ -51,7 +51,7 @@ size_t write_json(void *ptr, size_t size, size_t nmemb, void *data) {
 }
 
 // Función para obtener la URL de la última release de GitHub
-int fetch_latest_release_url(const char *repo, char *download_url, const char *asset_name) {
+int fetch_latest_release_url(const char *repo, char *download_url, const char *asset_name, char *release_tag) {
     CURL *curl;
     CURLcode res;
     char *response = malloc(1);  // Reserva inicial para la respuesta
@@ -104,6 +104,18 @@ int fetch_latest_release_url(const char *repo, char *download_url, const char *a
         return 1;
     }
 
+    // Obtener el tag de la release
+    json_t *tag = json_object_get(root, "tag_name");
+    if (json_is_string(tag)) {
+        snprintf(release_tag, 128, "%s", json_string_value(tag)); // Asume que release_tag tiene suficiente espacio
+    } else {
+        fprintf(stderr, "Error: tag_name not found in the release data\n");
+        json_decref(root);
+        free(response);
+        curl_easy_cleanup(curl);
+        return 1;
+    }
+
     // Buscar el asset que nos interesa (archivo .bin)
     json_t *assets = json_object_get(root, "assets");
     if (!json_is_array(assets)) {
@@ -141,21 +153,23 @@ size_t write_data(void *ptr, size_t size, size_t nmemb, void *data) {
     // Escribir los datos binarios directamente al archivo
     size_t written = fwrite(ptr, size, nmemb, fp);
 
+    printf(".");
+
     return written;
 }
 
 // Función para descargar el archivo binario
 int download_file(const char *repo, const char *asset_name) {
-
     char url[512];
+    char release_tag[128];
 
     // Obtener la URL de la última release
-    if (fetch_latest_release_url(repo, url, asset_name) != 0) {
+    if (fetch_latest_release_url(repo, url, asset_name, release_tag) != 0) {
         fprintf(stderr, "Can't download file\n");
         return 1;
     }
 
-    printf("Downloading %s... ", url);
+    printf("Downloading %s (%s)", asset_name, release_tag);
 
     CURL *curl;
     CURLcode res;
@@ -164,14 +178,14 @@ int download_file(const char *repo, const char *asset_name) {
     // Abrir el archivo de salida en modo binario
     fp = fopen(asset_name, "wb");
     if (!fp) {
-        perror("error writting file!\n");
+        perror(" error writting file!\n");
         return 1;
     }
 
     // Inicializar libcurl
     curl = curl_easy_init();
     if (!curl) {
-        fprintf(stderr, "download error!\n");
+        fprintf(stderr, " download error!\n");
         fclose(fp);
         return 1;
     }
@@ -194,14 +208,14 @@ int download_file(const char *repo, const char *asset_name) {
     long http_code = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
     if (res != CURLE_OK || http_code != 200) {
-        fprintf(stderr, "download error %ld (%s)\n", http_code, curl_easy_strerror(res));
+        fprintf(stderr, " download error %ld (%s)\n", http_code, curl_easy_strerror(res));
         fclose(fp);
         curl_easy_cleanup(curl);
         return 1;
     }
 
     // Cerrar el archivo y limpiar
-    printf("done!\n");
+    printf(" done!\n");
     fclose(fp);
     curl_easy_cleanup(curl);
 

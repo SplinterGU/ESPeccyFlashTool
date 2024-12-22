@@ -44,6 +44,8 @@
 
 #ifdef _WIN32
     #define ESPUTIL             "esputil.exe"
+#elif defined(__APPLE__)
+    #define ESPUTIL             "esputil_macos"
 #else
     #define ESPUTIL             "esputil_linux"
 #endif
@@ -141,7 +143,7 @@ int flash_firmware(const char *firmware_name, const char *port_name, int baud) {
 }
 
 int main(int argc, char *argv[]) {
-    printf("ESPeccy Flash Tool - v1.2\n");
+    printf("ESPeccy Flash Tool - v1.2.1\n");
     printf("Copyright (c) 2024 SplinterGU\n\n");
 
     const char *firmware_name = "complete_firmware-psram.bin";

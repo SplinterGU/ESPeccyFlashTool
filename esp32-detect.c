@@ -108,6 +108,7 @@ int configure_port(FD fd) {
 
 // Función para reiniciar el ESP32
 void reset_esp32(FD fd) {
+#if 1
 #if defined(_WIN32) || defined(_WIN64)
     // Windows-specific reset using DTR and RTS control
     Sleep(100);                         // Esperar 100 ms
@@ -117,7 +118,7 @@ void reset_esp32(FD fd) {
     EscapeCommFunction(fd, SETDTR);     // Set DTR
     EscapeCommFunction(fd, CLRRTS);     // Clear RTS
     Sleep(100);                         // Esperar 50 ms
-    EscapeCommFunction(fd, SETRTS);     // Set RTS
+    EscapeCommFunction(fd, CLRDTR);     // Clear RTS
 #else
     // Linux-specific reset using ioctl
     int dtr_flag = TIOCM_DTR;
@@ -129,7 +130,24 @@ void reset_esp32(FD fd) {
     ioctl(fd, TIOCMBIS, &dtr_flag);     // Set DTR
     ioctl(fd, TIOCMBIC, &rts_flag);     // Clear RTS
     usleep(50000);                      // Esperar 50 ms
+    ioctl(fd, TIOCMBIS, &dtr_flag);     // Clear RTS
+#endif
+#else
+#if defined(_WIN32) || defined(_WIN64)
+    // Windows-specific reset using DTR and RTS control
+    EscapeCommFunction(fd, CLRDTR);     // Clear DTR
+    EscapeCommFunction(fd, CLRRTS);     // Clear RTS
+    Sleep(100);                         // Esperar 100 ms
+    EscapeCommFunction(fd, SETRTS);     // Set RTS
+#else
+    // Linux-specific reset using ioctl
+    int dtr_flag = TIOCM_DTR;
+    int rts_flag = TIOCM_RTS;
+    ioctl(fd, TIOCMBIC, &dtr_flag);     // Clear DTR
+    ioctl(fd, TIOCMBIC, &rts_flag);     // Clear RTS
+    usleep(100000);                     // Esperar 100 ms
     ioctl(fd, TIOCMBIS, &rts_flag);     // Set RTS
+#endif
 #endif
 }
 

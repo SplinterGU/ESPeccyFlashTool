@@ -108,6 +108,7 @@ void show_help() {
     printf("Usage: especcy_flash_tool [options]\n");
     printf("Options:\n");
     printf("  -h                This help\n");
+    printf("  -nopsram          Use no PSRAM firmware\n");
     printf("  -b|-baud [rate]   Specify baud rate (default: 115200)\n");
     printf("                    Supported rates:\n");
     printf("                      9600, 19200, 38400, 57600, 115200, 230400\n");
@@ -142,7 +143,7 @@ int flash_firmware(const char *firmware_name, const char *port_name, int baud) {
 }
 
 int main(int argc, char *argv[]) {
-    printf("ESPeccy Flash Tool - v1.3\n");
+    printf("ESPeccy Flash Tool - v1.3.1\n");
     printf("Copyright (c) 2024-2025 SplinterGU\n\n");
 
     const char *firmware_name = "complete_firmware.bin";
@@ -153,6 +154,8 @@ int main(int argc, char *argv[]) {
         if (strcmp(argv[i], "-h") == 0) {
             show_help();
             return 0;
+        } else if (strcmp(argv[i], "-nopsram") == 0) {
+            firmware_name = "complete_firmware-nopsram.bin";
         } else if (strcmp(argv[i], "-baud") == 0 || strcmp(argv[i], "-b") == 0) {
             if (i + 1 < argc) {
                 baud_rate = atoi(argv[++i]);

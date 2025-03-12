@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
             show_help();
             return 0;
         } else if (strcmp(argv[i], "-nopsram") == 0) {
-            firmware_name = "complete_firmware-nopsram.bin";
+            firmware_name = "complete_firmware_nopsram.bin";
         } else if (strcmp(argv[i], "-baud") == 0 || strcmp(argv[i], "-b") == 0) {
             if (i + 1 < argc) {
                 baud_rate = atoi(argv[++i]);
